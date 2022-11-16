@@ -9,11 +9,12 @@ from selenium.webdriver.support.ui import WebDriverWait
 from fastapi import FastAPI,Request
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
-
-BASE_URL = 'craigslist.org'
+from configurator import BASE_URL
+from pyvirtualdisplay import Display
 # show-curtain opaque
 
 def get_storage_json(url) -> json:
+    
     chrome_options = webdriver.ChromeOptions()
     # chrome_options.add_argument("--headless")
     chrome_options.add_argument("--disable-extensions")
@@ -90,7 +91,9 @@ def generate_links(json_string: json) -> list:
     else:
         return False    
 def get_links(url:str) -> list:
+    display = Display(size=(1920, 1080)).start()
     json_data = get_storage_json(url)
+    display.stop()
     links = generate_links(json_data)
     if links:
         return links
