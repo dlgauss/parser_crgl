@@ -105,8 +105,10 @@ def generate_links(json_string: json) -> list:
                     ids.append(generated_url)
             
             print(f"Found {len(ids)} links")
+            logger.info(f'API  version parsed ==  1')
             return ids
         else:
+            logger.info(f'API  version parsed ==  0')
             urls = json_string[key]['urls']
             return urls
       
@@ -139,6 +141,7 @@ def update_item(request: Request):
     requested_city = request.query_params.get('city')
     requested_category = request.query_params.get('cat')
     requested_url = f"https://{requested_city}.{BASE_URL}/search/{requested_category}"
+    logger.info(f'Parsing data for {requested_url}')
     if requested_url:
         data = get_links(requested_url)
         if data:
