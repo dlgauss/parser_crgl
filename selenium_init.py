@@ -19,16 +19,15 @@ from pyvirtualdisplay import Display
 logger.add(f"{os.getcwd()}/logs/app.log", rotation="500 MB")
 def get_driver() -> webdriver:
     chrome_options = webdriver.ChromeOptions()
-    # chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--headless")
     chrome_options.add_argument("--disable-extensions")
     chrome_options.add_argument("--disable-notifications")
 
-    driver = webdriver.Chrome(chrome_options=chrome_options,executable_path=f"{os.getcwd()}/chromedriver")
+    driver = webdriver.Chrome(chrome_options=chrome_options,executable_path= f"{os.getcwd()}/chromedriver")
     return driver
 
 def get_storage_json(url,driver) -> json:
-    
-    
+        
     print('Browser opened')
     print('Opening: ', url)
     driver.get(url)
@@ -115,15 +114,12 @@ def generate_links(json_string: json) -> list:
     else:
         return False    
 def get_links(url:str) -> list:
-    driver = get_driver()
     
     display = Display(size=(1920, 1080)).start()
-    
+    driver = get_driver()    
     json_data = get_storage_json(url,driver)
-
     driver.quit()
     print(f"Browser closed")
-
     display.stop()
     
     links = generate_links(json_data)
