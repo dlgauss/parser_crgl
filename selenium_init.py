@@ -10,24 +10,32 @@ from fastapi import FastAPI,Request
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from configurator import BASE_URL
+from pprint import pprint
+from loguru import logger
+import os
 from pyvirtualdisplay import Display
 # show-curtain opaque
 
-def get_storage_json(url) -> json:
-    
+logger.add(f"{os.getcwd()}/logs/app.log", rotation="500 MB")
+def get_driver() -> webdriver:
     chrome_options = webdriver.ChromeOptions()
     # chrome_options.add_argument("--headless")
     chrome_options.add_argument("--disable-extensions")
     chrome_options.add_argument("--disable-notifications")
 
-    driver = webdriver.Chrome(chrome_options=chrome_options)
-    print('Browser opened')
+    driver = webdriver.Chrome(chrome_options=chrome_options,executable_path=f"{os.getcwd()}/chromedriver")
+    return driver
+
+def get_storage_json(url,driver) -> json:
     
+    
+    print('Browser opened')
+    print('Opening: ', url)
     driver.get(url)
     delay = 30 
 
-    print(f"Waiting for selector:  #search-results-page-1")
-    WebDriverWait(driver,delay).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR,"#search-results-page-1")))
+    # print(f"Waiting for selector:  #search-results-page-1")
+    # WebDriverWait(driver,delay).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR,"#search-results-page-1")))
     
     iframe_el = driver.find_element(By.ID,'cl-local-storage')
     print(f"Ifram el has been found")
@@ -53,7 +61,10 @@ def get_storage_json(url) -> json:
         driver.switch_to.window(driver.window_handles[1])
         driver.get(iframe_ur)
         time.sleep(2)
+        
+    
         local_storage = driver.execute_script("return localStorage.getItem('resultSets')")
+        
         try:
             json_string = json.loads(local_storage)
             print(f"Local storage found")
@@ -61,8 +72,7 @@ def get_storage_json(url) -> json:
             print(f'No data  found for {url} ')
             return False
         
-        driver.quit()
-        print(f"Browser closed")
+        
         return json_string
     else:
         print('No data available in localstorage')
@@ -70,30 +80,50 @@ def get_storage_json(url) -> json:
 
 def generate_links(json_string: json) -> list:
     if json_string:
+        
         data = json_string
         keys = data.keys()
         key = [i for i in keys][0]
 
-        hosts_list = data[key]['hostsList']
-        subareas_list = data[key]['subareasList']
-        categories_list = data[key]['categoriesList']
-        print(hosts_list)
-        print(subareas_list)
-        print(categories_list)
-        results_sets = data[key]['resultList']
-        ids = []
-        for item in results_sets:
-            generated_url = f"https://{hosts_list[item[0]]}.{BASE_URL}/{subareas_list[item[1]]}/{categories_list[item[2]]}/{item[-1]}.html"
-            ids.append(generated_url)
         
-        print(f"Found {len(ids)} links")
-        return ids
+        if 'version' in json_string[key]:
+            if json_string[key]['version'] == 1:
+                hosts_list = data[key]['hostsList']
+                subareas_list = data[key]['subareasList']
+                categories_list = data[key]['categoriesList']
+                print(hosts_list)
+                print(subareas_list)
+                print(categories_list)
+                results_sets = data[key]['resultList']
+                ids = []
+                for item in results_sets:
+                    generated_url = None
+                    if item[1] != -1:
+                        generated_url = f"https://{hosts_list[item[0]]}.{BASE_URL}/{subareas_list[item[1]]}/{categories_list[item[2]]}/{item[-1]}.html"
+                    else:
+                        generated_url = f"https://{hosts_list[item[0]]}.{BASE_URL}/{categories_list[item[2]]}/{item[-1]}.html"
+                    ids.append(generated_url)
+            
+            print(f"Found {len(ids)} links")
+            return ids
+        else:
+            urls = json_string[key]['urls']
+            return urls
+      
     else:
         return False    
 def get_links(url:str) -> list:
+    driver = get_driver()
+    
     display = Display(size=(1920, 1080)).start()
-    json_data = get_storage_json(url)
+    
+    json_data = get_storage_json(url,driver)
+
+    driver.quit()
+    print(f"Browser closed")
+
     display.stop()
+    
     links = generate_links(json_data)
     if links:
         return links
@@ -106,8 +136,9 @@ app = FastAPI()
 
 @app.get("/crgl/")
 def update_item(request: Request):
-    requested_url = request.query_params.get('url')
-    print(f"Url received: {requested_url}")
+    requested_city = request.query_params.get('city')
+    requested_category = request.query_params.get('cat')
+    requested_url = f"https://{requested_city}.{BASE_URL}/search/{requested_category}"
     if requested_url:
         data = get_links(requested_url)
         if data:
